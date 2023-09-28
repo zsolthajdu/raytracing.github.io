@@ -12,12 +12,38 @@
 //==============================================================================================
 
 #include "rtweekend.h"
+#include <chrono>
+#include <atomic>
 
 #include "color.h"
 #include "hittable.h"
 #include "material.h"
 
 #include <iostream>
+
+
+template <typename Clock = std::chrono::high_resolution_clock>
+class stopwatch
+{
+    const typename Clock::time_point start_point;
+public:
+    stopwatch() :
+        start_point(Clock::now())
+    {}
+
+    template <typename Rep = typename Clock::duration::rep, typename Units = typename Clock::duration>
+    Rep elapsed_time() const
+    {
+        std::atomic_thread_fence(std::memory_order_relaxed);
+        auto counted_time = std::chrono::duration_cast<Units>(Clock::now() - start_point).count();
+        std::atomic_thread_fence(std::memory_order_relaxed);
+        return static_cast<Rep>(counted_time);
+    }
+};
+
+using precise_stopwatch = stopwatch<>;
+using system_stopwatch = stopwatch<std::chrono::system_clock>;
+using monotonic_stopwatch = stopwatch<std::chrono::steady_clock>;
 
 
 class camera {
@@ -40,19 +66,27 @@ class camera {
 
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
+        precise_stopwatch stopwatch;
+
         for (int j = 0; j < image_height; ++j) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+            std::vector<color> row;
+
             for (int i = 0; i < image_width; ++i) {
                 color pixel_color(0,0,0);
                 for (int sample = 0; sample < samples_per_pixel; ++sample) {
                     ray r = get_ray(i, j);
                     pixel_color += ray_color(r, max_depth, world);
                 }
-                write_color(std::cout, pixel_color, samples_per_pixel);
+                row.push_back(pixel_color);
             }
+
+            write_row( row, samples_per_pixel);
         }
 
-        std::clog << "\rDone.                 \n";
+        auto actual_wait_time = stopwatch.elapsed_time<unsigned int, std::chrono::microseconds>();
+
+        std::clog << "\rDone. Took " << actual_wait_time << " microseconds.\n";
     }
 
   private:

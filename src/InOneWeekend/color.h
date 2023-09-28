@@ -14,6 +14,8 @@
 #include "vec3.h"
 
 #include <iostream>
+#include <strstream>
+#include <vector>
 
 using color = vec3;
 
@@ -22,7 +24,8 @@ inline double linear_to_gamma(double linear_component)
     return sqrt(linear_component);
 }
 
-void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) {
+void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) 
+{
     auto r = pixel_color.x();
     auto g = pixel_color.y();
     auto b = pixel_color.z();
@@ -45,5 +48,15 @@ void write_color(std::ostream &out, color pixel_color, int samples_per_pixel) {
         << static_cast<int>(256 * intensity.clamp(b)) << '\n';
 }
 
+void write_row( std::vector<color> &pixel_row, int samples_per_pixel)
+{
+    std::vector<color>::iterator i = pixel_row.begin();
+    std::strstream   line;
+
+    for (; i != pixel_row.end(); ++i) 
+        write_color(line, *i, samples_per_pixel);
+    
+    std::cout << line.str();
+}
 
 #endif
