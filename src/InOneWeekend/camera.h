@@ -47,6 +47,23 @@ using monotonic_stopwatch = stopwatch<std::chrono::steady_clock>;
 
 
 class camera {
+
+    void create_row(const hittable& world, int row_num)
+    {
+        std::vector<color> row;
+
+        for (int i = 0; i < image_width; ++i) {
+            color pixel_color(0, 0, 0);
+            for (int sample = 0; sample < samples_per_pixel; ++sample) {
+                ray r = get_ray(i, row_num);
+                pixel_color += ray_color(r, max_depth, world);
+            }
+            row.push_back(pixel_color);
+        }
+
+        write_row(row, samples_per_pixel);
+    }
+
   public:
     double aspect_ratio      = 1.0;  // Ratio of image width over height
     int    image_width       = 100;  // Rendered image width in pixel count
@@ -70,18 +87,7 @@ class camera {
 
         for (int j = 0; j < image_height; ++j) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-            std::vector<color> row;
-
-            for (int i = 0; i < image_width; ++i) {
-                color pixel_color(0,0,0);
-                for (int sample = 0; sample < samples_per_pixel; ++sample) {
-                    ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, max_depth, world);
-                }
-                row.push_back(pixel_color);
-            }
-
-            write_row( row, samples_per_pixel);
+            create_row(world, j);
         }
 
         auto actual_wait_time = stopwatch.elapsed_time<unsigned int, std::chrono::microseconds>();
