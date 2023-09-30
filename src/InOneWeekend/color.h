@@ -14,7 +14,7 @@
 #include "vec3.h"
 
 #include <iostream>
-#include <strstream>
+#include <sstream>
 #include <vector>
 
 using color = vec3;
@@ -50,10 +50,9 @@ void write_color(std::ostream &out, color pixel_color, int samples_per_pixel)
 
 void write_row( std::vector<color> &pixel_row, int samples_per_pixel)
 {
-    std::vector<color>::iterator i = pixel_row.begin();
-    std::strstream   line;
+    std::stringstream   line;
 
-    for (; i != pixel_row.end(); ++i) 
+    for ( auto i = pixel_row.begin() ; i != pixel_row.end(); ++i)
         write_color(line, *i, samples_per_pixel);
     
     std::cout << line.str();
