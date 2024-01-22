@@ -50,12 +50,10 @@ void write_color(std::ostream &out, color pixel_color, int samples_per_pixel)
 
 void write_row( std::vector<color> &pixel_row, int samples_per_pixel)
 {
-    std::stringstream   line;
+    for (auto i = pixel_row.begin(); i != pixel_row.end(); ++i)
+        write_color(std::cout, *i, samples_per_pixel);
 
-    for ( auto i = pixel_row.begin() ; i != pixel_row.end(); ++i)
-        write_color(line, *i, samples_per_pixel);
-    
-    std::cout << line.str();
+    std::cout << std::flush;
 }
 
 #endif

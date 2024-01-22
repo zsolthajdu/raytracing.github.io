@@ -18,8 +18,17 @@
 #include "sphere.h"
 
 
-int main() {
+int main( int argc, char ** argv) 
+{
     hittable_list world;
+    bool   multithread = false;
+
+    for( int x=1 ; x<argc ; x++ )
+        switch (argv[x][1])
+        {
+        case 'm':
+            multithread = true;
+        }
 
     auto ground_material = make_shared<lambertian>(color(0.5, 0.5, 0.5));
     world.add(make_shared<sphere>(point3(0,-1000,0), 1000, ground_material));
@@ -76,5 +85,5 @@ int main() {
     cam.defocus_angle = 0.6;
     cam.focus_dist    = 10.0;
 
-    cam.render(world);
+    cam.render(world, multithread);
 }

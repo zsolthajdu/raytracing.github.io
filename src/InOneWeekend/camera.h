@@ -14,6 +14,7 @@
 #include "rtweekend.h"
 #include <chrono>
 #include <atomic>
+#include <thread>
 
 #include "color.h"
 #include "hittable.h"
@@ -44,25 +45,14 @@ public:
 using precise_stopwatch = stopwatch<>;
 using system_stopwatch = stopwatch<std::chrono::system_clock>;
 using monotonic_stopwatch = stopwatch<std::chrono::steady_clock>;
+using std::shared_ptr;
+using std::make_shared;
 
+class camera;
+
+void create_row(const hittable* world, int row_num, camera* cam, std::thread* prev_row);
 
 class camera {
-
-    void create_row(const hittable& world, int row_num)
-    {
-        std::vector<color> row;
-
-        for (int i = 0; i < image_width; ++i) {
-            color pixel_color(0, 0, 0);
-            for (int sample = 0; sample < samples_per_pixel; ++sample) {
-                ray r = get_ray(i, row_num);
-                pixel_color += ray_color(r, max_depth, world);
-            }
-            row.push_back(pixel_color);
-        }
-
-        write_row(row, samples_per_pixel);
-    }
 
   public:
     double aspect_ratio      = 1.0;  // Ratio of image width over height
@@ -78,21 +68,39 @@ class camera {
     double defocus_angle = 0;  // Variation angle of rays through each pixel
     double focus_dist = 10;    // Distance from camera lookfrom point to plane of perfect focus
 
-    void render(const hittable& world) {
+    void render(const hittable& world, bool multithread) {
         initialize();
 
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
         precise_stopwatch stopwatch;
 
-        for (int j = 0; j < image_height; ++j) {
-            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-            create_row(world, j);
+        if (multithread) {
+            std::vector< shared_ptr<std::thread>>  threads;
+
+            for (int j = 0; j < image_height; ++j) {
+                std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+
+                auto row_thread = make_shared<std::thread>(create_row, &world, j, this, j == 0 ? nullptr : threads[j - 1].get());
+
+                threads.push_back(row_thread);
+            }
+
+            // Wait for last row to finish
+            threads[image_height - 1]->join();
+        }
+        else
+        {
+            for (int j = 0; j < image_height; ++j) {
+                std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+
+                create_row( &world, j, this, nullptr );
+            }
         }
 
         auto actual_wait_time = stopwatch.elapsed_time<unsigned int, std::chrono::microseconds>();
 
-        std::clog << "\rDone. Took " << actual_wait_time << " microseconds.\n";
+        std::clog << "\rDone. Took " << (float)actual_wait_time / 1000000 << " seconds.\n";
     }
 
   private:
@@ -140,6 +148,7 @@ class camera {
         defocus_disk_v = v * defocus_radius;
     }
 
+public:
     ray get_ray(int i, int j) const {
         // Get a randomly-sampled camera ray for the pixel at location i,j, originating from
         // the camera defocus disk.
@@ -193,5 +202,22 @@ class camera {
     }
 };
 
+void create_row(const hittable* world, int row_num, camera* cam, std::thread* prev_row)
+{
+    std::vector<color> row;
+
+    for (int i = 0; i < cam->image_width; ++i) {
+        color pixel_color(0, 0, 0);
+        for (int sample = 0; sample < cam->samples_per_pixel; ++sample) {
+            ray r = cam->get_ray(i, row_num);
+            pixel_color += cam->ray_color(r, cam->max_depth, *world);
+        }
+        row.push_back(pixel_color);
+    }
+    if (prev_row) // Wait for prev row to finish saving to file
+        prev_row->join();
+
+    write_row(row, cam->samples_per_pixel);
+}
 
 #endif
